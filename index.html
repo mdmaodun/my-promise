@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  
+
+  <script src="my-promise.js"></script>
+  <script>
+
+    // MyPromsie 有三个状态：pending\resolved\rejected
+    // 要么  pending --> resolved ， 要么 pending --> rejected ，状态一旦改变，就不能再变
+
+    // 创建 MyPromsie 实例
+    // 构造函数接收一个执行器函数（同步执行），该函数上又有两个参数，都是函数，
+      // resolve:  
+        // 用来将该 MyPromise 实例标记为成功，并接收正确的值(value)，
+        // 如果在此（调用resovle函数）之前指定了成功回调函数，那么会立即将成功回调函数推入微任务队列，传递正确的值
+      // reject:
+        // 用来将该 MyPromise 实例标记为失败，并接收错误的值(reason)，
+        // 如果在此（调用reject函数）之前指定了失败回调函数，那么会立即将失败回调函数推入微任务队列，传递错误的值
+
+    // 如果执行器函数在执行过程中抛出异常，那么则立即将该MyPromise实例标记为失败，并将错误对象作为错误的值(reason)传递下去
+
+    // then函数是用来指定成功回调和错误回调的，如果在此（调用then函数）之前，
+      // 该MyPromise实例还是 pending 状态，那么则将指定的回调保存到实例的 callbacks 中
+      // 该MyPromise实例已经是 resolved 状态，那么则立即将该成功回调函数推入微任务队列
+      // 该MyPromise实例已经是 rejected 状态，那么则立即将该失败回调函数推入微任务队列
+
+    // then会返回一个新的MyPromise实例，该MyPromise实例的状态会根据上一个then函数指定的回调函数的返回值来决定
+
+    // 异常穿透
+
+    var mp1 = new MyPromise(function (resolve, reject) {
+      console.log('2');
+      // resolve(3);
+      setTimeout(function () {
+        resolve(3);
+        // resolve(33);
+        // reject(3);
+        // reject(33);
+      }, 1000);
+      // throw 3;  // 等价  reject(3);
+    })
+    .then(function (value) {
+      console.log(value, 'value cb1');
+      return 4;
+    }, function (reason) {
+      console.log(reason, 'reason cb1');
+      // return 5;
+      throw 5;
+    })
+    .then(function (value) {
+      console.log(value, 'hehda');
+    })
+    .catch(function (reason) {
+      console.log(reason, 'reason catch');
+    })
+    .then(function (value) {
+      console.log(value, 'value cb2');
+    }, function (reason) {
+      console.log(reason, 'reason cb2');
+    });
+
+    console.log('1')
+  </script>
+</body>
+</html>
