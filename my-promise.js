@@ -9,6 +9,9 @@
     _this.value = undefined; // 用来保存正确的值
     _this.reason = undefined; // 用来保存错误的值
     // { onResolved: function () {}, onRejected: function () {}, onFinalyed: function () {} }
+    // 这里为什么要使用数组保存呢？
+    //   因为在状态改变前，有可能绑定多个回调
+    //   例如: var mp = new MyPromise(); mp.then(...); mp.then(...); 这里就使用同一个 mp 对象调用了两次 then 方法
     _this.callbacks = [];
 
     function resovle(value) {
@@ -19,7 +22,7 @@
         // 如果指定了成功或失败的回调
         if (_this.callbacks.length > 0) {
           // 用 setTimeout 0 模拟 微任务
-          setTimeout(() => {
+          setTimeout(function () {
             _this.callbacks.forEach(function (v) {
               v.onResolved(value);
             });
@@ -34,7 +37,7 @@
         _this.reason = reason;
         // 如果指定了成功或失败的回调
         if (_this.callbacks.length > 0) {
-          setTimeout(() => {
+          setTimeout(function () {
             _this.callbacks.forEach(function (v) {
               v.onRejected(reason);
             });
@@ -85,7 +88,7 @@
             },
             function (reason) {
               reject(reason);
-            }
+            },
           );
         }
         // 如果该返回值(result)不是一个 MyPromise 实例，
@@ -107,12 +110,12 @@
         });
       } else if (_this.status === STATUS_RESOLVED) {
         // 如果当前实例的状态是resolved，那么就将成功的回调推入微任务队列
-        setTimeout(() => {
+        setTimeout(function () {
           handle(onResolved, _this.value);
         }, 0);
       } else {
         // 如果当前实例的状态是rejected，那么就将失败的回调推入微任务队列
-        setTimeout(() => {
+        setTimeout(function () {
           handle(onRejected, _this.reason);
         }, 0);
       }
@@ -133,7 +136,7 @@
       function (reason) {
         callback();
         return MyPromise.reject(reason);
-      }
+      },
     );
   };
 
@@ -154,7 +157,7 @@
           },
           function (reason) {
             reject(reason);
-          }
+          },
         );
       });
     });
@@ -170,7 +173,7 @@
           },
           function (reason) {
             reject(reason);
-          }
+          },
         );
       });
     });
@@ -188,7 +191,7 @@
           },
           function (reason) {
             reject(reason);
-          }
+          },
         );
       } else {
         resolve(value);
