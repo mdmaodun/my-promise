@@ -14,36 +14,103 @@
     //   例如: var mp = new MyPromise(); mp.then(...); mp.then(...); 这里就使用同一个 mp 对象调用了两次 then 方法
     _this.callbacks = [];
 
+    function changeStatus(status, valueOrReason) {
+      if (_this.status !== STATUS_PENDING) return;
+      _this.status = status;
+      const isToResolved = status === STATUS_RESOLVED;
+      if (isToResolved) {
+        _this.value = valueOrReason;
+      } else {
+        _this.reason = valueOrReason;
+      }
+      // 如果指定了成功或失败的回调，则需要异步调用其回调函数
+      if (_this.callbacks.length > 0) {
+        // 用 setTimeout 0 模拟 微任务
+        setTimeout(function () {
+          _this.callbacks.forEach(function (v) {
+            if (isToResolved) {
+              v.onResolved(valueOrReason);
+            } else {
+              v.onRejected(valueOrReason);
+            }
+          });
+        }, 0);
+      }
+    }
+
     function resovle(value) {
-      // if (_this.status !== STATUS_PENDING) return ;
-      if (_this.status === STATUS_PENDING) {
-        _this.status = STATUS_RESOLVED;
-        _this.value = value;
-        // 如果指定了成功或失败的回调
-        if (_this.callbacks.length > 0) {
-          // 用 setTimeout 0 模拟 微任务
-          setTimeout(function () {
-            _this.callbacks.forEach(function (v) {
-              v.onResolved(value);
-            });
-          }, 0);
-        }
+      if (_this.status !== STATUS_PENDING) return;
+
+      // 如果 value 又是一个 MyPromise 对象，那么 value 的状态会决定 new 出来的这个 MyPromise 对象的状态
+      if (value instanceof MyPromise) {
+        value
+          .then(
+            function (value) {
+              return value;
+            },
+            function (reason) {
+              throw reason;
+            },
+          )
+          .then(
+            function (value) {
+              changeStatus(STATUS_RESOLVED, value);
+              // _this.status = STATUS_RESOLVED;
+              // _this.value = value;
+              // // 如果指定了成功或失败的回调
+              // if (_this.callbacks.length > 0) {
+              //   // 用 setTimeout 0 模拟 微任务
+              //   setTimeout(function () {
+              //     _this.callbacks.forEach(function (v) {
+              //       v.onResolved(value);
+              //     });
+              //   }, 0);
+              // }
+            },
+            function (reason) {
+              changeStatus(STATUS_REJECTED, reason);
+              // _this.status = STATUS_REJECTED;
+              // _this.reason = reason;
+              // // 如果指定了成功或失败的回调
+              // if (_this.callbacks.length > 0) {
+              //   // 用 setTimeout 0 模拟 微任务
+              //   setTimeout(function () {
+              //     _this.callbacks.forEach(function (v) {
+              //       v.onRejected(reason);
+              //     });
+              //   }, 0);
+              // }
+            },
+          );
+      } else {
+        changeStatus(STATUS_RESOLVED, value);
+        // _this.status = STATUS_RESOLVED;
+        // _this.value = value;
+        // // 如果指定了成功或失败的回调
+        // if (_this.callbacks.length > 0) {
+        //   // 用 setTimeout 0 模拟 微任务
+        //   setTimeout(function () {
+        //     _this.callbacks.forEach(function (v) {
+        //       v.onResolved(value);
+        //     });
+        //   }, 0);
+        // }
       }
     }
 
     function reject(reason) {
-      if (_this.status === STATUS_PENDING) {
-        _this.status = STATUS_REJECTED;
-        _this.reason = reason;
-        // 如果指定了成功或失败的回调
-        if (_this.callbacks.length > 0) {
-          setTimeout(function () {
-            _this.callbacks.forEach(function (v) {
-              v.onRejected(reason);
-            });
-          }, 0);
-        }
-      }
+      changeStatus(STATUS_REJECTED, reason);
+      // if (_this.status !== STATUS_PENDING) return;
+      // _this.status = STATUS_REJECTED;
+      // _this.reason = reason;
+      // // 如果指定了成功或失败的回调
+      // if (_this.callbacks.length > 0) {
+      //   setTimeout(function () {
+      //     _this.callbacks.forEach(function (v) {
+      //       v.onRejected(reason);
+      //     });
+      //   }, 0);
+      // }
     }
 
     try {
@@ -74,7 +141,7 @@
       function handle(callback, arg) {
         var result = undefined;
         try {
-          result = callback(arg); // 异步执行
+          result = callback(arg);
         } catch (err) {
           reject(err);
           return;
@@ -82,14 +149,7 @@
         // 如果该返回值（result）是一个 MyPromise 实例，
         if (result instanceof MyPromise) {
           // 那么 result 的状态会决定 then 函数创建出来的新的MyPromise实例的状态
-          result.then(
-            function (value) {
-              resolve(value);
-            },
-            function (reason) {
-              reject(reason);
-            },
-          );
+          result.then(resolve, reject);
         }
         // 如果该返回值(result)不是一个 MyPromise 实例，
         else {
@@ -131,11 +191,11 @@
     return this.then(
       function (value) {
         callback();
-        return MyPromise.resolve(value);
+        return value;
       },
       function (reason) {
         callback();
-        return MyPromise.reject(reason);
+        throw reason;
       },
     );
   };
@@ -146,19 +206,17 @@
     var successCount = 0; // 用来保存成功的个数
     return new MyPromise(function (resolve, reject) {
       promises.forEach(function (v, i) {
-        (v instanceof MyPromise ? v : MyPromise.resolve(v)).then(
-          function (value) {
-            // values.push(value); 1/2/3
-            values[i] = value;
-            successCount++;
-            if (successCount === promises.length) {
-              resolve(values);
-            }
-          },
-          function (reason) {
-            reject(reason);
-          },
-        );
+        (v instanceof MyPromise ? v : MyPromise.resolve(v)).then(function (
+          value,
+        ) {
+          // values.push(value); 1/2/3
+          values[i] = value;
+          successCount++;
+          if (successCount === promises.length) {
+            resolve(values);
+          }
+        },
+        reject);
       });
     });
   };
@@ -168,12 +226,8 @@
     return new MyPromise(function (resolve, reject) {
       promises.forEach(function (v) {
         (v instanceof MyPromise ? v : MyPromise.resolve(v)).then(
-          function (value) {
-            resolve(value);
-          },
-          function (reason) {
-            reject(reason);
-          },
+          resolve,
+          reject,
         );
       });
     });
@@ -185,14 +239,7 @@
   MyPromise.resolve = function (value) {
     return new MyPromise(function (resolve, reject) {
       if (value instanceof MyPromise) {
-        value.then(
-          function (value) {
-            resolve(value);
-          },
-          function (reason) {
-            reject(reason);
-          },
-        );
+        value.then(resolve, reject);
       } else {
         resolve(value);
       }
@@ -203,6 +250,28 @@
   MyPromise.reject = function (reason) {
     return new MyPromise(function (resolve, reject) {
       reject(reason);
+    });
+  };
+
+  // 创建一个延迟ms毫秒后再标记为resolved的MyPromise对象
+  MyPromise.delayResolve = function (value, ms) {
+    return new MyPromise(function (resolve, reject) {
+      setTimeout(function () {
+        if (value instanceof MyPromise) {
+          value.then(resolve, reject);
+        } else {
+          resolve(value);
+        }
+      }, ms);
+    });
+  };
+
+  // 创建一个延迟ms毫秒后再标记为rejected的MyPromise对象
+  MyPromise.delayReject = function (reason, ms) {
+    return new MyPromise(function (resolve, reject) {
+      setTimeout(function () {
+        reject(reason);
+      }, ms);
     });
   };
 
