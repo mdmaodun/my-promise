@@ -138,10 +138,10 @@
 
     return new MyPromise(function (resolve, reject) {
       // 用来处理 新创建出来的 MyPromise 实例的状态的
-      function handle(callback, arg) {
+      function handle(callback, valueOrReason) {
         var result = undefined;
         try {
-          result = callback(arg);
+          result = callback(valueOrReason);
         } catch (err) {
           reject(err);
           return;
