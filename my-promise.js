@@ -42,17 +42,10 @@
       if (_this.status !== STATUS_PENDING) return;
 
       // 如果 value 又是一个 MyPromise 对象，那么 value 的状态会决定 new 出来的这个 MyPromise 对象的状态
+      // 不会直接调用这个value.then，而是下面这样，会再创建一个Promise，放到then的成功回调中处理
       if (value instanceof MyPromise) {
-        value
-          .then(
-            function (value) {
-              return value;
-            },
-            function (reason) {
-              throw reason;
-            },
-          )
-          .then(
+        MyPromise.resolve().then(function () {
+          value.then(
             function (value) {
               changeStatus(STATUS_RESOLVED, value);
               // _this.status = STATUS_RESOLVED;
@@ -82,6 +75,7 @@
               // }
             },
           );
+        });
       } else {
         changeStatus(STATUS_RESOLVED, value);
         // _this.status = STATUS_RESOLVED;
@@ -149,7 +143,10 @@
         // 如果该返回值（result）是一个 MyPromise 实例，
         if (result instanceof MyPromise) {
           // 那么 result 的状态会决定 then 函数创建出来的新的MyPromise实例的状态
-          result.then(resolve, reject);
+          // 不会直接调用这个result.then，而是下面这样，会再创建一个Promise，放到then的成功回调中处理
+          MyPromise.resolve().then(function () {
+            result.then(resolve, reject);
+          });
         }
         // 如果该返回值(result)不是一个 MyPromise 实例，
         else {
@@ -234,15 +231,12 @@
   };
 
   // 创建一个新的MyPromise实例
-  //  如果value为MyPromise实例，则value的状态决定新创建的MyPromise实例的状态
-  //  如果value不为MyPromise实例，则立即标记为成功，并将该value做为成功的值
+  //  如果value为MyPromise实例，则直接返回该value
+  //  如果value不为MyPromise实例，则会创建一个新的MyPromise实例，并立即标记为成功，将该value做为成功的值
   MyPromise.resolve = function (value) {
+    if (value instanceof MyPromise) return value
     return new MyPromise(function (resolve, reject) {
-      if (value instanceof MyPromise) {
-        value.then(resolve, reject);
-      } else {
-        resolve(value);
-      }
+      resolve(value);
     });
   };
 
